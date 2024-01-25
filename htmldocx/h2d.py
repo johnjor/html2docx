@@ -43,6 +43,7 @@ DEFAULT_PARAGRAPH_STYLE = None
 def get_filename_from_url(url):
     return os.path.basename(urlparse(url).path)
 
+
 def is_url(url):
     """
     Not to be used for actually validating a url, but in our use case we only 
@@ -51,9 +52,10 @@ def is_url(url):
     parts = urlparse(url)
     return all([parts.scheme, parts.netloc, parts.path])
 
+
 def fetch_image(url):
-    """
-    Attempts to fetch an image from a url. 
+    """Attempts to fetch an image from a url.
+
     If successful returns a bytes object, else returns None
 
     :return:
@@ -65,8 +67,10 @@ def fetch_image(url):
     except urllib.error.URLError:
         return None
 
+
 def remove_last_occurence(ls, x):
     ls.pop(len(ls) - ls[::-1].index(x) - 1)
+
 
 def remove_whitespace(string, leading=False, trailing=False):
     """Remove white space from a string.
@@ -133,11 +137,13 @@ def remove_whitespace(string, leading=False, trailing=False):
     # TODO need some way to get rid of extra spaces in e.g. text <span>   </span>  text
     return re.sub(r'\s+', ' ', string)
 
+
 def delete_paragraph(paragraph):
     # https://github.com/python-openxml/python-docx/issues/33#issuecomment-77661907
     p = paragraph._element
     p.getparent().remove(p)
     p._p = p._element = None
+
 
 font_styles = {
     'b': 'bold',
@@ -187,9 +193,9 @@ class HtmlToDocx(HTMLParser):
             self.doc = document
         else:
             self.doc = Document()
-        self.bs = self.options['fix-html'] # whether or not to clean with BeautifulSoup
+        self.bs = self.options['fix-html']  # whether or not to clean with BeautifulSoup
         self.document = self.doc
-        self.include_tables = True #TODO add this option back in?
+        self.include_tables = True  # TODO add this option back in?
         self.include_images = self.options['images']
         self.include_styles = self.options['styles']
         self.paragraph = None
@@ -221,9 +227,9 @@ class HtmlToDocx(HTMLParser):
             margin = style['margin-left']
             units = re.sub(r'[0-9]+', '', margin)
             margin = int(float(re.sub(r'[a-z]+', '', margin)))
+            # TODO handle non px units
             if units == 'px':
                 self.paragraph.paragraph_format.left_indent = Inches(min(margin // 10 * INDENT, MAX_INDENT))
-            # TODO handle non px units
 
     def add_styles_to_run(self, style):
         if 'color' in style:
@@ -250,7 +256,7 @@ class HtmlToDocx(HTMLParser):
                 colors = [0, 0, 0]
                 # TODO map colors to named colors (and extended colors...)
                 # For now set color to black to prevent crashing
-            self.run.font.highlight_color = WD_COLOR.GRAY_25 #TODO: map colors
+            self.run.font.highlight_color = WD_COLOR.GRAY_25  # TODO: map colors
 
     def apply_paragraph_style(self, style=None):
         try:
@@ -377,7 +383,7 @@ class HtmlToDocx(HTMLParser):
                 child_parser.add_html_to_cell(cell_html, docx_cell)
                 cell_col += 1
             cell_row += 1
-        
+
         # skip all tags until corresponding closing tag
         self.instances_to_skip = len(table_soup.find_all('table'))
         self.skip_tag = 'table'
@@ -386,7 +392,7 @@ class HtmlToDocx(HTMLParser):
 
     def handle_link(self, href, text):
         # Link requires a relationship
-        is_external = href.startswith('http')
+        # is_external = href.startswith('http')
         rel_id = self.paragraph.part.relate_to(
             href,
             docx.opc.constants.RELATIONSHIP_TYPE.HYPERLINK,
@@ -396,7 +402,6 @@ class HtmlToDocx(HTMLParser):
         # Create the w:hyperlink tag and add needed values
         hyperlink = docx.oxml.shared.OxmlElement('w:hyperlink')
         hyperlink.set(docx.oxml.shared.qn('r:id'), rel_id)
-
 
         # Create sub-run
         subrun = self.paragraph.add_run()
@@ -439,7 +444,7 @@ class HtmlToDocx(HTMLParser):
             return
         elif tag == 'ol' or tag == 'ul':
             self.tags['list'].append(tag)
-            return # don't apply styles for now
+            return  # don't apply styles for now
         elif tag == 'br':
             if hasattr(self, 'run'):
                 self.run.add_break()
@@ -468,7 +473,8 @@ class HtmlToDocx(HTMLParser):
             self.paragraph = self.doc.add_paragraph()
             pPr = self.paragraph._p.get_or_add_pPr()
             pBdr = OxmlElement('w:pBdr')
-            pPr.insert_element_before(pBdr,
+            pPr.insert_element_before(
+                pBdr,
                 'w:shd', 'w:tabs', 'w:suppressAutoHyphens', 'w:kinsoku', 'w:wordWrap',
                 'w:overflowPunct', 'w:topLinePunct', 'w:autoSpaceDE', 'w:autoSpaceDN',
                 'w:bidi', 'w:adjustRightInd', 'w:snapToGrid', 'w:spacing', 'w:ind',
@@ -622,7 +628,7 @@ class HtmlToDocx(HTMLParser):
             self.include_tables = False
             return
             # find other way to do it, or require this dependency?
-        self.tables = self.ignore_nested_tables(self.soup.find_all('table'))  
+        self.tables = self.ignore_nested_tables(self.soup.find_all('table'))
         self.table_no = 0
 
     def run_process(self, html):
@@ -663,24 +669,27 @@ class HtmlToDocx(HTMLParser):
             path, filename = os.path.split(filename_html)
             filename_docx = '%s/new_docx_file_%s' % (path, filename)
         self.doc.save('%s.docx' % filename_docx)
-    
+
     def parse_html_string(self, html):
         self.set_initial_attrs()
         self.run_process(html)
         return self.doc
 
-if __name__=='__main__':
-    
+
+if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser(description='Convert .html file into .docx file with formatting')
     arg_parser.add_argument('filename_html', help='The .html file to be parsed')
     arg_parser.add_argument(
-        'filename_docx', 
-        nargs='?', 
-        help='The name of the .docx file to be saved. Default new_docx_file_[filename_html]', 
+        'filename_docx',
+        nargs='?',
+        help='The name of the .docx file to be saved. Default new_docx_file_[filename_html]',
         default=None
     )
-    arg_parser.add_argument('--bs', action='store_true', 
-        help='Attempt to fix html before parsing. Requires bs4. Default True')
+    arg_parser.add_argument(
+        '--bs',
+        action='store_true',
+        help='Attempt to fix html before parsing. Requires bs4. Default True'
+    )
 
     args = vars(arg_parser.parse_args())
     file_html = args.pop('filename_html')
