@@ -273,7 +273,6 @@ class HtmlToDocx(HTMLParser):
         return string_dict
 
     def handle_li(self):
-        restart_numbering = False
         # check list stack to determine style and depth
         list_depth = len(self.tags['list'])
         if list_depth:
@@ -283,19 +282,12 @@ class HtmlToDocx(HTMLParser):
 
         if list_type == 'ol':
             list_style = self.ol_style
-
-            # Restart numbering if previous paragraph style is not the same as self.ol_style
-            previous_paragraph = self.doc.paragraphs[-1]
-            if previous_paragraph.style.name != self.ol_style:
-                restart_numbering = True
         else:
             list_style = self.ul_style
 
         self.paragraph = self.doc.add_paragraph(style=list_style)
         self.paragraph.paragraph_format.left_indent = Inches(min(list_depth * LIST_INDENT, MAX_INDENT))
         self.paragraph.paragraph_format.line_spacing = 1
-        if restart_numbering:
-            self.doc.restart_numbering(self.paragraph)
 
     def add_image_to_cell(self, cell, image):
         # python-docx doesn't have method yet for adding images to table cells. For now we use this
