@@ -159,7 +159,7 @@ font_names = {
 
 class HtmlToDocx(HTMLParser):
 
-    def __init__(self):
+    def __init__(self, ul_style="List Bullet", ol_style="List Number"):
         super().__init__()
         self.options = {
             'fix-html': True,
@@ -175,8 +175,8 @@ class HtmlToDocx(HTMLParser):
         ]
         self.table_style = DEFAULT_TABLE_STYLE
         self.paragraph_style = DEFAULT_PARAGRAPH_STYLE
-        self.ul_style = "List Bullet"
-        self.ol_style = "List Number"
+        self.ul_style = ul_style
+        self.ol_style = ol_style
 
     def set_initial_attrs(self, document=None):
         self.tags = {
@@ -267,21 +267,29 @@ class HtmlToDocx(HTMLParser):
         return string_dict
 
     def handle_li(self):
+        restart_numbering = False
         # check list stack to determine style and depth
         list_depth = len(self.tags['list'])
         if list_depth:
             list_type = self.tags['list'][-1]
         else:
-            list_type = 'ul' # assign unordered if no tag
+            list_type = 'ul'  # assign unordered if no tag
 
         if list_type == 'ol':
             list_style = self.ol_style
+
+            # Restart numbering if previous paragraph style is not the same as self.ol_style
+            previous_paragraph = self.doc.paragraphs[-1]
+            if previous_paragraph.style.name != self.ol_style:
+                restart_numbering = True
         else:
             list_style = self.ul_style
 
-        self.paragraph = self.doc.add_paragraph(style=list_style)            
+        self.paragraph = self.doc.add_paragraph(style=list_style)
         self.paragraph.paragraph_format.left_indent = Inches(min(list_depth * LIST_INDENT, MAX_INDENT))
         self.paragraph.paragraph_format.line_spacing = 1
+        if restart_numbering:
+            self.doc.restart_numbering(self.paragraph)
 
     def add_image_to_cell(self, cell, image):
         # python-docx doesn't have method yet for adding images to table cells. For now we use this
@@ -364,7 +372,7 @@ class HtmlToDocx(HTMLParser):
                 if col.name == 'th':
                     cell_html = "<b>%s</b>" % cell_html
                 docx_cell = self.table.cell(cell_row, cell_col)
-                child_parser = HtmlToDocx()
+                child_parser = HtmlToDocx(ul_style=self.ul_style, ol_style=self.ol_style)
                 child_parser.copy_settings_from(self)
                 child_parser.add_html_to_cell(cell_html, docx_cell)
                 cell_col += 1
