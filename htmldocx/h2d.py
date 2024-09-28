@@ -355,7 +355,8 @@ class HtmlToDocx(HTMLParser):
             except urllib.error.URLError:
                 image = None
         else:
-            image = src
+            with open(src, 'rb') as f:
+                image = io.BytesIO(f.read())
         # add image to doc
         if image:
             try:
