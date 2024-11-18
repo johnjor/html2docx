@@ -1,5 +1,6 @@
 # html3docx
-A fork of https://github.com/pqzx/html2docx.  This version will focus on expedient changes for our particular use case.
+A fork of https://github.com/pqzx/html2docx.  This version will focus on expedient changes for our particular use case,
+and thus will receive infrequent updates.
 
 Dependencies: `python-docx` & `bs4`
 
@@ -7,12 +8,16 @@ Dependencies: `python-docx` & `bs4`
 
 `pip install html3docx`
 
+PyPI: https://pypi.org/project/html3docx/
+
 ### Improvements
 
 - Fix for KeyError when handling an img tag without a src attribute.
 - Images with a width attribute will be scaled according to that width.
 - Fix for AttributeError when handling a leading br tag, either at the top of the HTML snippet, or within a td or th cell.
 - Fix for IndexError when a table has more cells in latter rows than in the first row.
+- Parameterized image fetcher function.
+- Fix for KeyError when handling an anchor with no href attribute.
 
 ## Original README
 

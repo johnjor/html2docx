@@ -17,10 +17,11 @@ import io, os
 import urllib.request
 from urllib.parse import urlparse
 from html.parser import HTMLParser
+from typing import Callable
 
 import docx, docx.table
 from docx import Document
-from docx.shared import RGBColor, Pt, Inches
+from docx.shared import RGBColor, Inches
 from docx.enum.text import WD_COLOR, WD_ALIGN_PARAGRAPH
 from docx.image.image import Image
 from docx.oxml import OxmlElement
@@ -196,7 +197,8 @@ class HtmlToDocx(HTMLParser):
                  ul_style="List Bullet",
                  ol_style="List Number",
                  table_style=DEFAULT_TABLE_STYLE,
-                 paragraph_style=DEFAULT_PARAGRAPH_STYLE):
+                 paragraph_style=DEFAULT_PARAGRAPH_STYLE,
+                 custom_image_fetcher: Callable = fetch_image):
         super().__init__()
         self.options = {
             'fix-html': True,
@@ -214,6 +216,7 @@ class HtmlToDocx(HTMLParser):
         self.paragraph_style = paragraph_style
         self.ul_style = ul_style
         self.ol_style = ol_style
+        self.image_fetcher = custom_image_fetcher
 
     def set_initial_attrs(self, document=None):
         self.tags = {
@@ -224,9 +227,9 @@ class HtmlToDocx(HTMLParser):
             self.doc = document
         else:
             self.doc = Document()
-        self.bs = self.options['fix-html'] # whether or not to clean with BeautifulSoup
+        self.bs = self.options['fix-html']  # whether or not to clean with BeautifulSoup
         self.document = self.doc
-        self.include_tables = True #TODO add this option back in?
+        self.include_tables = True  # TODO add this option back in?
         self.include_images = self.options['images']
         self.include_styles = self.options['styles']
         self.paragraph = None
@@ -240,6 +243,7 @@ class HtmlToDocx(HTMLParser):
         self.paragraph_style = other.paragraph_style
         self.ul_style = other.ul_style
         self.ol_style = other.ol_style
+        self.image_fetcher = other.image_fetcher
 
     def get_cell_html(self, soup):
         # Returns string of td element with opening and closing <td> tags removed
@@ -351,7 +355,7 @@ class HtmlToDocx(HTMLParser):
         src_is_url = is_url(src)
         if src_is_url:
             try:
-                image = fetch_image(src)
+                image = self.image_fetcher(src)
             except urllib.error.URLError:
                 image = None
         else:
@@ -598,7 +602,7 @@ class HtmlToDocx(HTMLParser):
         # https://html.spec.whatwg.org/#interactive-content
         link = self.tags.get('a')
         if link:
-            self.handle_link(link['href'], data)
+            self.handle_link(link.get("href", ""), data)
         else:
             # If there's a link, dont put the data directly in the run
             self.run = self.paragraph.add_run(data)

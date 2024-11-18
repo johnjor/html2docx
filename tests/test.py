@@ -1,4 +1,6 @@
 import os
+import io
+import urllib.request
 from pathlib import Path
 import unittest
 from docx import Document
@@ -257,7 +259,6 @@ and blank lines.
         self.document.add_heading('Test: Leading BR', level=1)
         self.parser.add_html_to_document("<br /><p>Hello</p>", self.document)
 
-
     def test_unbalanced_table(self):
         # A table with more td elements in latter rows than in the first
         self.document.add_heading(
@@ -291,6 +292,30 @@ and blank lines.
             "<p></p><table><tbody><tr><td><ul><li>Item 1</li><li>Item 2</li></ul></td></tr></tbody></table>"
         ]:
             custom_parser.add_html_to_document(snippet, self.document)
+
+    def test_custom_image_fetcher(self):
+
+        def custom_fetcher(url):
+            url.replace("oops.githubusercontent.com", "raw.githubusercontent.com")
+            try:
+                with urllib.request.urlopen(url) as response:
+                    # security flaw?
+                    return io.BytesIO(response.read())
+            except urllib.error.URLError:
+                return None
+
+        custom_parser = HtmlToDocx(custom_image_fetcher=custom_fetcher)
+
+        self.document.add_heading(
+            'Test: Handling Images with Custom Fetch Function',
+            level=1
+        )
+        custom_parser.add_html_to_document(
+            "<img src='https://oops.githubusercontent.com/pqzx/h2d/master/testimg.png' />", self.document)
+        custom_parser.add_html_to_document(
+            "<table><tbody><tr><td>"
+            "<img src='https://oops.githubusercontent.com/pqzx/h2d/master/testimg.png' />"
+            "</td></tr></tbody></table>", self.document)
 
 
 if __name__ == '__main__':
