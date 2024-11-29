@@ -16,8 +16,11 @@ PyPI: https://pypi.org/project/html3docx/
 - Images with a width attribute will be scaled according to that width.
 - Fix for AttributeError when handling a leading br tag, either at the top of the HTML snippet, or within a td or th cell.
 - Fix for IndexError when a table has more cells in latter rows than in the first row.
+- Ordered lists will now restart at 1. when proceeded by a paragraph that is not a numbered list.
 - Parameterized image fetcher function.
+- Parameterized default styles for OL, UL, and TABLE tags.
 - Fix for KeyError when handling an anchor with no href attribute.
+- Added support for images with base64 encoded data src.
 
 ## Original README
 
