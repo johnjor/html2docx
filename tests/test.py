@@ -5,6 +5,7 @@ from pathlib import Path
 import unittest
 from docx import Document
 from .context import HtmlToDocx, test_dir
+from htmldocx.h2d import parse_data_src
 
 
 class OutputTest(unittest.TestCase):
@@ -234,6 +235,32 @@ and blank lines.
             "<img src='https://upload.wikimedia.org/wikipedia/commons/8/88/A_storm_at_Pors-Loubous.jpg' />",
             self.document)
 
+    def test_image_data_src(self):
+        self.document.add_heading("An image using a data src", level=1)
+        self.parser.add_html_to_document(
+            '<img alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==" style="width:36pt;height:36pt" />',
+            self.document
+        )
+
+        for p in self.document.paragraphs:
+            assert "iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==" not in p.text, p.text
+
+
+    def test_image_data_src_in_table(self):
+        self.document.add_heading("An image using a data src in a table", level=1)
+        self.parser.add_html_to_document(
+            """
+            <table><tbody><tr><td>
+            <img alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==" style="width:36pt;height:36pt" />
+            </td></tr></tbody></table>
+            """,
+            self.document
+        )
+
+        for p in self.document.paragraphs:
+            assert "iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==" not in p.text, p.text
+
+
     def test_image_no_src(self):
         self.document.add_heading(
             'Test: Handling IMG without SRC',
@@ -316,6 +343,36 @@ and blank lines.
             "<table><tbody><tr><td>"
             "<img src='https://oops.githubusercontent.com/pqzx/h2d/master/testimg.png' />"
             "</td></tr></tbody></table>", self.document)
+
+
+class UnitTest(unittest.TestCase):
+    @staticmethod
+    def test_parse_data_src1():
+        media_type, is_base64, data = parse_data_src("data:,Hello%2C%20World%21")
+        assert media_type == "text/plain"
+        assert is_base64 == False
+        assert data == "Hello%2C%20World%21"
+
+    @staticmethod
+    def test_parse_data_src2():
+        media_type, is_base64, data = parse_data_src("data:text/html,%3Ch1%3EHello%2C%20World%21%3C%2Fh1%3E")
+        assert media_type == "text/html"
+        assert is_base64 == False
+        assert data == "%3Ch1%3EHello%2C%20World%21%3C%2Fh1%3E"
+
+    @staticmethod
+    def test_parse_data_src3():
+        media_type, is_base64, data = parse_data_src("data:;base64,SGVsbG8sIFdvcmxkIQ==")
+        assert media_type == "text/plain"
+        assert is_base64 == True
+        assert data == "SGVsbG8sIFdvcmxkIQ=="
+
+    @staticmethod
+    def test_parse_data_src4():
+        media_type, is_base64, data = parse_data_src("data:image/png;base64,iVBORw0KGgoAAA")
+        assert media_type == "image/png"
+        assert is_base64 == True
+        assert data == "iVBORw0KGgoAAA"
 
 
 if __name__ == '__main__':

@@ -12,15 +12,18 @@ user can pass existing document object as arg
 
 How to deal with block level style applied over table elements? e.g. text align
 """
+import binascii
 import re, argparse
 import io, os
 import urllib.request
+from base64 import b64decode
 from urllib.parse import urlparse
 from html.parser import HTMLParser
 from typing import Callable
 
 import docx, docx.table
 from docx import Document
+from docx.image.exceptions import UnrecognizedImageError
 from docx.shared import RGBColor, Inches
 from docx.enum.text import WD_COLOR, WD_ALIGN_PARAGRAPH
 from docx.image.image import Image
@@ -41,6 +44,8 @@ DEFAULT_TABLE_STYLE = None
 # Style to use with paragraphs. By default no style is used.
 DEFAULT_PARAGRAPH_STYLE = None
 
+RE_DATA_SRC = re.compile(r"data:([\w\d/-]+)?;?(base64)?,(.+)")
+
 
 def get_filename_from_url(url):
     return os.path.basename(urlparse(url).path)
@@ -53,6 +58,14 @@ def is_url(url):
     """
     parts = urlparse(url)
     return all([parts.scheme, parts.netloc, parts.path])
+
+
+def parse_data_src(src):
+    result = re.match(RE_DATA_SRC, src)
+    media_type = result.group(1) or "text/plain"
+    is_base64 = result.group(2) == "base64"
+    data = result.group(3)
+    return media_type, is_base64, data
 
 
 def fetch_image(url):
@@ -359,7 +372,17 @@ class HtmlToDocx(HTMLParser):
             except urllib.error.URLError:
                 image = None
         else:
-            image = src
+            if src.startswith("data:"):
+                _, is_base64, data = parse_data_src(src)
+                if is_base64:
+                    try:
+                        image = io.BytesIO(b64decode(data))
+                    except binascii.Error:
+                        image = None
+                else:
+                    image = data  # TODO: URL-decode, but why would an image not be base64
+            else:
+                image = None
         # add image to doc
         if image:
             try:
@@ -378,7 +401,7 @@ class HtmlToDocx(HTMLParser):
                         self.doc.add_picture(image)
                 else:
                     self.add_image_to_cell(self.doc, image)
-            except FileNotFoundError:
+            except (FileNotFoundError, UnrecognizedImageError):
                 image = None
         if not image:
             if src_is_url:
@@ -602,9 +625,9 @@ class HtmlToDocx(HTMLParser):
         # https://html.spec.whatwg.org/#interactive-content
         link = self.tags.get('a')
         if link:
-            self.handle_link(link.get("href", ""), data)
+            self.handle_link(link.get("href", ""), data)  # TODO: IDE says link is a list, but .get() works fine
         else:
-            # If there's a link, dont put the data directly in the run
+            # If there's a link, don't put the data directly in the run
             self.run = self.paragraph.add_run(data)
             spans = self.tags['span']
             for span in spans:
